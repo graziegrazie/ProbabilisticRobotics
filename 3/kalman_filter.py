@@ -6,18 +6,15 @@ class LinearKalmanFilter:
     def __init__(self):
         self.name = "";
         
-        self.matA = np.identity(2)
-        self.matB = np.identity(2)
-        self.matC = np.random.rand(2, 2)
-
-        self.prev_mu = np.empty((2, 1))
-        self.curr_mu = np.empty((2, 1))
+        self.matA = np.matrix(np.identity(2))
+        self.matB = np.matrix(np.identity(2))
+        self.matC = np.matrix(np.random.rand(2, 2))
 
         self.noiseQ = np.matrix(np.identity(2))
         self.noiseR = np.matrix(np.identity(2) * 2)
 
+        self.prev_mu = np.empty((2, 1))
         self.prev_sigma = np.identity(2)
-        self.curr_sigma = np.identity(2)
 
     def predict(self, u):
         tmp_mu    = self.matA * self.prev_mu + self.matB * u
@@ -51,24 +48,12 @@ if __name__ == '__main__':
     X = np.array([x])
     Y = np.array([x])
 
-    mu_list = np.array([[0, 0]])
+    mu_list = np.empty((0, 2), float)
 
     for i in xrange(1, 6):
-        print(X[i-1])
-        X = np.append(X, lkf.matA * X[i-1] + lkf.matB * u + np.random.multivariate_normal([0, 0], lkf.noiseQ, 1).T)
-        Y = np.append(Y, lkf.matC * X[i-1] + np.random.multivariate_normal([0, 0], lkf.noiseR, 1).T)
-        
         lkf.exec_lkf(u, z[i])
-        mu_list = np.append(mu_list, np.array([[lkf.prev_mu[0]], [lkf.prev_mu[1]]]))
+        mu_list = np.append(mu_list, lkf.prev_mu.T, axis=0)
 
-    mu_list = np.delete(mu_list, 0)
-    X       = np.delete(X, 0)
-
-    z = z.getA()
-    z = np.array([z[i][0] for i in range(len(z))])
-    
-    plt.plot(z, z,    marker="o", color="red")
-    plt.plot(mu_list, marker="x", color="blue")
-    plt.plot(X,       marker="|", color="green")
-    plt.plot(Y,       marker=".", color="orange")
+    plt.plot(z[:, 0],       z[:, 1],       marker="o", color="red" , label="predict")
+    plt.plot(mu_list[:, 0], mu_list[:, 1], marker="x", color="blue", label="update")
     plt.show()
