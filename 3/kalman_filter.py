@@ -1,66 +1,78 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.lines  as line
 
-class LinearKalmanFilter:
+class linear_kalman_filter:
     def __init__(self):
-        self.name = "";
+        self.A = np.matrix([[  1,   0],
+                            [  0,   1]])
+        self.B = np.matrix([[0.1,   0],
+                            [  0, 0.1]])
+        self.C = np.matrix([[  1,   0],
+                            [  0,   1]])
+
+        self.Q = np.matrix([[1, 0],
+                            [0, 1]])
+        self.R = np.matrix([[2, 0],
+                            [0, 2]])
+
+    def predict(self, prev_mu, prev_sigma, u):
+        mu_    = self.A * prev_mu    + self.B * u
+        sigma_ = self.A * prev_sigma * self.A.T + self.R
         
-        self.matA = np.matrix(np.identity(2))
-        self.matB = np.matrix(np.identity(2))
-        self.matC = np.matrix(np.identity(2))
+        return mu_, sigma_
 
-        self.noiseQ = np.matrix(np.identity(2))
-        self.noiseR = np.matrix(np.identity(2) * 2)
+    def update(self, mu_, sigma_, z):
+        inv = np.linalg.inv(self.C * sigma_ * self.C.T + self.Q)
+        
+        K     = sigma_ * self.C.T * inv
+        mu    = mu_ + K * (z - self.C * mu_)
+        sigma = (np.identity(2) - K * self.C) * sigma_
 
-        self.prev_mu    = np.empty((2, 1))
-        self.prev_sigma = np.identity(2)
-
-    def predict(self, u):
-        tmp_mu    = self.matA * self.prev_mu + self.matB * u
-        tmp_sigma = self.matA * self.prev_sigma * self.matA.T + self.noiseQ
-
-        return tmp_mu, tmp_sigma
-
-    def update(self, z, mu, sigma):
-        inv = np.linalg.inv(self.matC * sigma * self.matC.T + self.noiseR)
-        gain = sigma * self.matC.T * inv
-    
-        updated_mu    = mu + gain * (z.T - self.matC * mu)
-        updated_sigma = (np.matrix(np.identity(2)) - gain * self.matC) * sigma
-
-        return updated_mu, updated_sigma
-
-    def exec_lkf(self, u, z):
-        tmp_mu, tmp_sigma = self.predict(u)
-        updated_mu, updated_sigma = self.update(z, tmp_mu, tmp_sigma)
-
-        self.prev_mu    = updated_mu
-        self.prev_sigma = updated_sigma
+        return mu, sigma
 
 if __name__ == '__main__':
-    lkf = LinearKalmanFilter()
-    
-    u = np.matrix(np.array([[2],[2]]))
+    lkf  = linear_kalman_filter()
 
-    x = np.empty((2, 1))
-    X = np.matrix(x.T)
-    Z = np.matrix(x.T)
+    mu0    = np.matrix([0, 0]).T
+    sigma0 = np.matrix([[0, 0],
+                        [0, 0]])
 
-    for i in xrange(5):
-        x = lkf.matA * x + lkf.matB * u + np.random.multivariate_normal([0, 0], lkf.noiseQ, 1).T
-        X = np.append(X, x.T, axis=0)
-        
-        z = lkf.matC * x + np.random.multivariate_normal([0, 0], lkf.noiseR, 1).T
-        Z = np.append(Z, z.T, axis=0)
+    u0 = np.matrix([10, 10])
+    U  = np.matrix(np.array(u0), float)
 
-    MU = np.matrix(np.array([[0, 0]]), float)
+    X  = np.array([[0, 0]])
+    Z  = np.array([[0, 0]])
+    MU = np.array([[0, 0]])
 
-    for i in xrange(1, 6):
-        lkf.exec_lkf(u, Z[i])
-        MU = np.append(MU, lkf.prev_mu.T, axis=0)
+    # following block store points of parabola curve in X & Z
+    for t in np.arange(0.1, 2, 0.1):
+        u = np.array([[10, 10 - 10 * t]])
+        U = np.append(U, u, axis=0)
 
-    plt.plot(X[:, 0],  X[:, 1],  marker="o", color="red"  , label="state")
-    plt.plot(Z[:, 0],  Z[:, 1],  marker="x", color="green", label="measure")
-    plt.plot(MU[:, 0], MU[:, 1], marker="*", color="blue" , label="update")
+        x = np.array([[10*t, 10*t - 0.5 * 10 * t**2]])
+        X = np.append(X, x, axis=0)
+                      
+        z = x + np.random.multivariate_normal([0, 0], np.identity(2), 1)
+        Z = np.append(Z, z, axis=0)
+
+    prev_mu    = mu0
+    prev_sigma = sigma0
+
+    # following block
+    for t in xrange(0, 20):
+        mu_, sigma_ = lkf.predict(prev_mu, prev_sigma, U[t].T)
+        mu,  sigma  = lkf.update(mu_,      sigma_,     np.matrix(Z[t]).T)
+
+        prev_mu    = mu
+        prev_sigma = sigma
+
+        MU = np.append(MU, np.array([[mu.item(0), mu.item(1)]]), axis=0)
+
+    plt.plot( X[:, 0],  X[:, 1], "+-", color="red",   label="ideal curve")
+    plt.plot( Z[:, 0],  Z[:, 1], "o-", color="green", label="measured curve")
+    plt.plot(MU[:, 0], MU[:, 1], "x-", color="blue",  label="LKFed curve")
+    plt.legend()
+    plt.title("Fig. Various Parabola Curve")
+    plt.xlabel("Px[m]")
+    plt.ylabel("Py[m]")
     plt.show()
